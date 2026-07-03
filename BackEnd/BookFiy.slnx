@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="BookFiy.Api/BookFiy.Api.csproj" />
+  <Project Path="BookFiy.Application/BookFiy.Application.csproj" />
+  <Project Path="BookFiy.Domain/BookFiy.Domain.csproj" />
+  <Project Path="BookFiy.Infrastructure/BookFiy.Infrastructure.csproj" />
+  <Project Path="BookFiy.Tests/BookFiy.Tests.csproj" Id="5c2c06d3-95b1-4022-83bb-d0573c74047f" />
+</Solution>
