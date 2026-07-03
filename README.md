@@ -23,6 +23,56 @@ API – Controllers and middleware. The entry point that receives HTTP requests 
 
 Tests – xUnit tests that call Application services directly, using mocked repositories.
 
+## API Overview
+
+###  Auth
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/confirm-register`
+- `POST /api/auth/resend-otp`
+- `POST /api/auth/refresh-token`
+
+---
+
+###  Admin
+- `GET /api/admin`
+- `POST /api/admin`
+- `PUT /api/admin/{id}`
+
+---
+
+###  Tenants
+- `GET /api/tenant`
+- `GET /api/tenant/{slug}`
+- `POST /api/tenant`
+
+---
+
+###  Employees
+- `POST /api/employee`
+- `GET /api/employee`
+- `PUT /api/employee/{id}`
+- `DELETE /api/employee/{id}`
+
+---
+
+###  Services
+- `POST /api/services`
+- `GET /api/services`
+- `GET /api/services/employee/{id}`
+- `PUT /api/services/{id}`
+- `DELETE /api/services/{id}`
+
+---
+
+###  Bookings
+- `POST /api/booking`
+- `GET /api/booking/user/{id}`
+- `GET /api/booking/employee/{id}`
+- `PUT /api/booking/{id}`
+- `DELETE /api/booking/{id}`
+
+
 
 ### 1. Multi-Tenancy
 - Every `ApplicationUser`, `Employee`, `Service`, and `Booking` is scoped by `TenantId`.
@@ -131,5 +181,56 @@ Password: Admin@Z1234
 5- user registers themselves using email + password (with OTP email verification).
 6- user logs in, browses services, and creates a Booking.
 7- System checks for time conflicts before confirming the booking.
+
+
+## Design Decisions & Reflections
+
+### A. How overlapping bookings are prevented and enforced
+
+Overlap prevention happens in two layers, not one:
+
+1. **Application-level check** — before creating or updating a booking, `BookingService` calls `HasConflictAsync(tenantId, employeeId, start, end, excludeBookingId)`, which queries existing bookings for that employee/tenant and checks for any overlapping time range (`existing.StartTime < newEnd && existing.EndTime > newStart`).
+
+2. **Database-level guarantee** — the conflict check alone is not atomic under concurrent requests (see below), so the create/update runs inside a **DB transaction**, and a **unique constraint / index on `(EmployeeId, StartTime, EndTime)`** (or a `RowVersion` concurrency token on the `Booking` row) backs it up. If two requests race past the application check simultaneously, the second write fails at the database level rather than silently succeeding.
+
+3. On conflict, `BookingService` throws `InvalidOperationException`, which the API layer maps to `409 Conflict`.
+
+
+### B. Assumptions about concurrency
+
+- Single SQL Server instance, no multi-writer/multi-region setup — the unique constraint approach assumes one source of truth.
+
+- Conflicts are expected  (two customers booking the exact same employee/slot at the same instant), so optimistic concurrency (fail-and-reject) was chosen over pessimistic locking (lock-and-wait), since it doesn't hold DB locks under normal load.
+
+- No client-side retry/queueing was assumed — if a `409` happens, the frontend simply shows the user the slot is taken and asks them to pick another.
+
+- Each request is assumed to be scoped to a single tenant/employee combination — no cross-tenant transactions are needed.
+
+### C. What would break at scale, and the first bottleneck
+
+- **First bottleneck**: the booking write path — `HasConflictAsync` + insert, both against a single relational database. As tenants and employees grow, this table gets hot on the `(EmployeeId, StartTime)` index, and every booking attempt still requires a round trip + transaction.
+
+- **Secondary bottleneck**: synchronous SMTP email sending (OTPs, temp passwords) inside the request/response cycle — this blocks a thread per request and doesn't scale well under bursty registration traffic.
+
+- **List/read endpoints** (`GET /api/booking/employee/{id}`, etc.) would degrade as `BookingAudit` and `Bookings` grow per tenant, since paging/sorting is pushed to the DB but there's no caching layer or read replica yet.
+
+- **Multi-tenancy** itself isn't a bottleneck by design (every query is tenant-scoped), but a single shared database means one very large tenant can still degrade performance for others (noisy neighbor problem).
+
+### D. Evolving this into a distributed system
+
+- Move email/OTP sending off the request thread into a **background worker / message queue** (e.g. Azure Service Bus, RabbitMQ) so registration and employee creation don't block on SMTP.
+
+- Introduce an **outbox pattern** for `BookingAudit` so audit writes are eventually consistent and don't compete with the booking write itself.
+
+- **Shard or partition by `TenantId`** once a single database becomes a bottleneck, since all queries are already tenant-scoped — this is the natural partition key.
+- Add **read replicas** for list/paging endpoints, keeping writes (booking creation, conflict checks) on the primary.
+
+- Replace the DB-level unique constraint with a **distributed lock or reservation service** (e.g. Redis-based) per `(EmployeeId, TimeSlot)` if the system moves to multiple database instances, since a cross-shard unique constraint isn't possible.
+
+- Emit booking events (`Created`, `Cancelled`, etc.) to an event stream so downstream services (notifications, analytics) can consume without coupling to `BookingService` directly.
+
+### E. Tradeoff prioritized: correctness over performance, with simplicity as a constraint
+
+Correctness was prioritized first — the layered conflict check + DB constraint approach exists specifically to guarantee no double-booking ever slips through, even under race conditions, because a booking system's core trust promise is "if it's confirmed, it's yours." Simplicity came second — soft deletes, DTOs, and a straightforward layered architecture were chosen over more complex patterns (e.g. CQRS, event sourcing) since the scope didn't justify that complexity yet. Performance was treated as the thing to optimize *later*: the design deliberately avoids premature optimizations (caching, sharding, async messaging) until the actual bottleneck (see C) is observed under real load.
 
 
