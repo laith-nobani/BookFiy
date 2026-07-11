@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using MailKit.Net.Smtp;
-using MimeKit;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
-using System.Linq;
+﻿using MimeKit;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using BookFiy.Domain.Entities;
@@ -108,38 +101,7 @@ namespace BookFiy.Application.Services
                 await client.DisconnectAsync(true);
             }
         }
-        private static string GenerateTemporaryPassword(int length = 12)
-        {
-            const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ"; 
-            const string lower = "abcdefghijkmnopqrstuvwxyz";
-            const string digits = "0123456789";
-            const string specials = "!@#$%&*?";
-            var all = upper + lower + digits + specials;
-
-            var rand = RandomNumberGenerator.Create();
-            var bytes = new byte[length];
-            rand.GetBytes(bytes);
-            var chars = new char[length];
-            for (int i = 0; i < length; i++)
-            {
-                chars[i] = all[bytes[i] % all.Length];
-            }
-
-            var password = new string(chars);
-            if (!password.Any(c => upper.Contains(c)))
-                password = upper[(int)bytes[0] % upper.Length] + password.Substring(1);
-            if (!password.Any(c => lower.Contains(c)))
-                password = password.Substring(0, 1) + lower[(int)bytes[1] % lower.Length] + password.Substring(2);
-            if (!password.Any(c => digits.Contains(c)))
-                password = password.Substring(0, 2) + digits[(int)bytes[2] % digits.Length] + password.Substring(3);
-            if (!password.Any(c => specials.Contains(c)))
-                password = password.Substring(0, 3) + specials[(int)bytes[3] % specials.Length] + password.Substring(4);
-
-            return password;
-        }
-
-      
-
+       
        
     }
 }

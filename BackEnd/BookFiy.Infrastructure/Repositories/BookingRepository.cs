@@ -102,10 +102,10 @@ namespace BookFiy.Infrastructure.Repositories
             return await query.Skip(skip).Take(pageSize).Include(b => b.Status).ToListAsync();
         }
 
-        public async Task<bool> HasConflictAsync(Guid tenantId, Guid employeeId, DateTime startTime, DateTime endTime, Guid? excludeBookingId = null)
+        public async Task<bool> HasConflictAsync(Guid tenantId, Guid serviceId, DateTime startTime, DateTime endTime, Guid? excludeBookingId = null)
         {
             var query = _dbContext.Bookings.AsQueryable()
-                .Where(b => b.TenantId == tenantId && b.EmployeeId == employeeId);
+                .Where(b => b.TenantId == tenantId && b.ServiceId == serviceId);
 
             if (excludeBookingId.HasValue)
                 query = query.Where(b => b.Id != excludeBookingId.Value);

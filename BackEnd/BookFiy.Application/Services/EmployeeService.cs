@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using BookFiy.Domain.Entities;
 using BookFiy.Application.Interfaces;
 using BookFiy.Application.Dtos.Employee;
+using BookFiy.Application.Comman;
 
 namespace BookFiy.Application.Services
 {
@@ -20,12 +21,15 @@ namespace BookFiy.Application.Services
             _emailService = emailService;
         }
 
-        public async Task<EmployeeDto> GetEmployeeByIdAsync(Guid employeeId, Guid tenantId)
+        public async Task<Result<EmployeeDto>> GetEmployeeByIdAsync(Guid employeeId, Guid tenantId)
         {
             var emp = await _employeeRepository.GetEmployeeByIdAsync(employeeId, tenantId);
-            if (emp == null) return null!;
+            if (emp == null)
+                return Result<EmployeeDto>.Failure("Employee not found.");
+
             var user = await _userManager.FindByIdAsync(emp.UserId.ToString());
-            return new EmployeeDto
+
+            var res= new EmployeeDto
             {
                 Id = emp.Id,
                 FirstName = user?.FullName?.Split(' ').FirstOrDefault() ?? string.Empty,
@@ -36,9 +40,11 @@ namespace BookFiy.Application.Services
                 PhoneNumber = user?.PhoneNumber ?? string.Empty,
                 TenantName = emp.Tenant?.Name ?? string.Empty
             };
+
+            return Result<EmployeeDto>.Success(res);
         }
 
-        public async Task<List<EmployeeDto>> GetAllEmployeesAsync(Guid tenantId)
+        public async Task<Result<List<EmployeeDto>>> GetAllEmployeesAsync(Guid tenantId)
         {
             var list = await _employeeRepository.GetAllEmployeesAsync(tenantId);
             var result = new List<EmployeeDto>();
@@ -57,10 +63,11 @@ namespace BookFiy.Application.Services
                     TenantName = emp.Tenant?.Name ?? string.Empty
                 });
             }
-            return result;
+
+           return Result<List<EmployeeDto>>.Success(result);
         }
 
-        public async Task<EmployeeDto> RegisterEmployeeAsync(CraateEmployeeDto request, Guid tenantId, Guid createdBy)
+        public async Task<Result<EmployeeDto>> RegisterEmployeeAsync(CraateEmployeeDto request, Guid tenantId, Guid createdBy)
         {
             var user = new ApplicationUser
             {
@@ -92,7 +99,7 @@ namespace BookFiy.Application.Services
             var employee = new Employee().Create(user.Id, request.JobTitle, request.Bio, tenantId,createdBy);
             await _employeeRepository.CreateEmployeeAsync(employee);
 
-            return new EmployeeDto
+            var res= new EmployeeDto
             {
                 Id = employee.Id,
                 FirstName = request.FirstName,
@@ -103,6 +110,8 @@ namespace BookFiy.Application.Services
                 PhoneNumber = user.PhoneNumber ?? string.Empty,
                 TenantName = employee.Tenant?.Name ?? string.Empty
             };
+
+            return Result<EmployeeDto>.Success(res);
         }
 
         public string GenerateTemporaryPassword(int length = 12)
@@ -116,67 +125,67 @@ namespace BookFiy.Application.Services
             }
             return new string(passwordChars);
         }
-        public async Task UpdateEmployeeAsync(Guid employeeId, UpdateEmployeeDto request, Guid tenantId)
+        public async Task<Result<bool>> UpdateEmployeeAsync(Guid employeeId, UpdateEmployeeDto request, Guid tenantId)
         {
              var empTask =await _employeeRepository.GetEmployeeByIdAsync(employeeId, tenantId);
 
              if (empTask == null)
-                throw new KeyNotFoundException("Employee not found.");
+               return Result<bool>.Failure("Employee not found.");
 
-             
-             if(empTask.TenantId != tenantId)
-                throw new UnauthorizedAccessException("You do not have permission to update this employee.");
 
-             
+            if (empTask.TenantId != tenantId)
+                return Result<bool>.Failure("You do not have permission to update this employee.");
+
+
             var user = await _userManager.FindByIdAsync(empTask.UserId.ToString());
 
             if (user == null)
-                    throw new KeyNotFoundException("Associated user not found.");
+                return Result<bool>.Failure("Associated user not found.");
 
-            if(user.TenantId != tenantId)
-                    throw new UnauthorizedAccessException("You do not have permission to update this employee's user.");
-              
+            if (user.TenantId != tenantId)
+                return Result<bool>.Failure("You do not have permission to update this employee's user.");
+
             user.UpdateUser(request.Email, request.Email, $"{request.FirstName} {request.LastName}",request.PhoneNumber);
             var userUpdateResult = await _userManager.UpdateAsync(user);
             if (!userUpdateResult.Succeeded)
             {
-                throw new InvalidOperationException(string.Join(", ", userUpdateResult.Errors.Select(e => e.Description)));
+                return Result<bool>.Failure(string.Join(", ", userUpdateResult.Errors.Select(e => e.Description)));
             }
 
             empTask.Update(request.JobTitle, request.Bio);
 
             await _employeeRepository.UpdateEmployeeAsync(empTask);
+
+            return Result<bool>.Success(true, "Employee updated successfully.");
         }
 
-        public async Task DeleteEmployeeAsync(Guid employeeId, Guid tenantId)
+        public async Task<Result<bool>> DeleteEmployeeAsync(Guid employeeId, Guid tenantId)
         {
             var empTask =await _employeeRepository.GetEmployeeByIdAsync(employeeId, tenantId);
             if (empTask == null)
-                throw new KeyNotFoundException("Employee not found.");
+                return Result<bool>.Failure("Employee not found.");
             
             if(empTask.TenantId != tenantId)
-                throw new UnauthorizedAccessException("You do not have permission to delete this employee.");
+                return Result<bool>.Failure("You do not have permission to delete this employee.");
             var user = await _userManager.FindByIdAsync(empTask.UserId.ToString());
 
             if (user == null)
-                throw new KeyNotFoundException("Associated user not found.");
+                return Result<bool>.Failure("Associated user not found.");
 
             if(user.TenantId != tenantId)
-                throw new UnauthorizedAccessException("You do not have permission to delete this employee's user.");
+                return Result<bool>.Failure("You do not have permission to delete this employee's user.");
 
-             user.SoftDelete();
-             var userUpdateResult = await _userManager.UpdateAsync(user);
+            user.SoftDelete();
+            var userUpdateResult = await _userManager.UpdateAsync(user);
             if (!userUpdateResult.Succeeded)
                 {
-                throw new InvalidOperationException(string.Join(", ", userUpdateResult.Errors.Select(e => e.Description)));
+                return Result<bool>.Failure(string.Join(", ", userUpdateResult.Errors.Select(e => e.Description)));
             }
            
             empTask.SoftDelete();
             await _employeeRepository.UpdateEmployeeAsync(empTask);
 
-
-
-
+            return Result<bool>.Success(true, "Employee deleted successfully.");
         }
     }
 }

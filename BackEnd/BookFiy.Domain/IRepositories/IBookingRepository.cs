@@ -28,7 +28,7 @@ namespace BookFiy.Domain.IRepositories
 
         Task<bool> HasConflictAsync(
             Guid tenantId,
-            Guid employeeId,
+            Guid serviceId,
             DateTime startTime,
             DateTime endTime,
             Guid? excludeBookingId = null);

@@ -118,7 +118,7 @@ namespace BookFiy.Application.Services
             var startTime = bookingDto.StartTime;
             var endTime = startTime.AddMinutes(service.DurationMinutes);
 
-            var lockKey = $"booking:{TenantId}:{service.Employee.Id}:{startTime:yyyyMMddHHmm}";
+            var lockKey = $"booking:{TenantId}:{service.Id}:{startTime:yyyyMMddHHmm}";
 
             await using var connection = _dbContext.Database.GetDbConnection();
             await connection.OpenAsync();
@@ -128,11 +128,11 @@ namespace BookFiy.Application.Services
                 await using (var lockCommand = connection.CreateCommand())
                 {
                     lockCommand.CommandText = @"
-                EXEC sp_getapplock 
+                    EXEC sp_getapplock 
                     @Resource = @resource,
                     @LockMode = 'Exclusive',
                     @LockTimeout = 5000;
-            ";
+                    ";
 
                     var param = lockCommand.CreateParameter();
                     param.ParameterName = "@resource";
@@ -148,7 +148,7 @@ namespace BookFiy.Application.Services
                 {
                     var hasConflict = await _bookingRepository.HasConflictAsync(
                         TenantId,
-                        service.Employee.Id,
+                        service.Id,
                         startTime,
                         endTime);
 
@@ -218,10 +218,10 @@ namespace BookFiy.Application.Services
                 {
                     await using var releaseCommand = connection.CreateCommand();
                     releaseCommand.CommandText = @"
-                EXEC sp_releaseapplock 
+                    EXEC sp_releaseapplock 
                     @Resource = @resource,
                     @LockOwner = 'Session';
-            ";
+                ";
 
                     var param = releaseCommand.CreateParameter();
                     param.ParameterName = "@resource";

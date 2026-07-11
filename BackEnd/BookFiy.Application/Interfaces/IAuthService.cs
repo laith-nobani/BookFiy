@@ -1,4 +1,5 @@
-﻿using BookFiy.Application.Dtos.Auth;
+﻿using BookFiy.Application.Comman;
+using BookFiy.Application.Dtos.Auth;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -8,10 +9,12 @@ namespace BookFiy.Application.Interfaces
     public interface IAuthService
     {
 
-        public Task<LoginResponse> LoginAsync(LoginRequest request);
-        public Task<RegisterResponse> RegisterAsync(RegisterRequest request);
-        public Task<RegisterResponse> ConfirmRegisterAsync(RegisterConfirmRequest request);
-        public Task ResendOtpAsync(string email);
-        public Task<RefreshTokenResponse> RefreshToken(RefreshTokenRequest request); 
+        public Task<Result<LoginResponse>> LoginAsync(LoginRequest request);
+        public Task<Result<RegisterResponse>> RegisterAsync(RegisterRequest request);
+        public Task<Result<RegisterResponse>> ConfirmRegisterAsync(RegisterConfirmRequest request);
+        public Task<Result<bool>> ResendOtpAsync(string email);
+        public Task<Result<RefreshTokenResponse>> RefreshToken(RefreshTokenRequest request); 
+        public Task<Result<bool>> LogoutAsync(string refreshToken);
+        public Task<Result<bool>> ResetPasswordAsync(ResetPasswordRequest request);
     }
 }

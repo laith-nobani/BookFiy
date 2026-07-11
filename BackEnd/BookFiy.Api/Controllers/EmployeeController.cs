@@ -21,91 +21,86 @@ namespace BookFiy.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> RegisterEmployee(CraateEmployeeDto request)
         {
-            try
-            {
 
-                var tenantClaim = User.FindFirst("tenant_id")?.Value;
-                if (tenantClaim == null) return Forbid();
-                var tenantId = Guid.Parse(tenantClaim);
 
-                var createdBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+            var tenantClaim = User.FindFirst("tenant_id")?.Value;
+            if (tenantClaim == null) 
+                return Forbid();
 
-                var employee = await _employeeService.RegisterEmployeeAsync(request, tenantId, createdBy);
-                return Ok(employee);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex);
-            }
+            var tenantId = Guid.Parse(tenantClaim);
+            var createdBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            var res = await _employeeService.RegisterEmployeeAsync(request, tenantId, createdBy);
+
+            if (!res.IsSuccess)
+                return BadRequest(res.Message);
+
+            return Ok(res.Data);
+           
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
             var tenantClaim = User.FindFirst("tenant_id")?.Value;
-            if (tenantClaim == null) return Forbid();
-            var tenantId = Guid.Parse(tenantClaim);
+            if (tenantClaim == null) 
+                return Forbid();
 
+            var tenantId = Guid.Parse(tenantClaim);
             var list = await _employeeService.GetAllEmployeesAsync(tenantId);
-            return Ok(list);
+            return Ok(list.Data);
         }
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(Guid id)
         {
-            try
-            {
-                var tenantClaim = User.FindFirst("tenant_id")?.Value;
-                if (tenantClaim == null) return Forbid();
-                var tenantId = Guid.Parse(tenantClaim);
-
-                var emp = await _employeeService.GetEmployeeByIdAsync(id, tenantId);
-                if (emp == null) return NotFound();
-                return Ok(emp);
-            }
-            catch
-            {
-                return BadRequest();
-            }
+            var tenantClaim = User.FindFirst("tenant_id")?.Value;
+            if (tenantClaim == null) return Forbid();
+            var tenantId = Guid.Parse(tenantClaim);
+    
+            var res = await _employeeService.GetEmployeeByIdAsync(id, tenantId);   
+            if (!res.IsSuccess)   
+                return NotFound(res.Message);
+                
+            return Ok(res.Data);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(Guid id, UpdateEmployeeDto request)
         {
-            try
-            {
-                var tenantClaim = User.FindFirst("tenant_id")?.Value;
-                if (tenantClaim == null) return Forbid();
-                var tenantId = Guid.Parse(tenantClaim);
-                var updatedBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-                _employeeService.UpdateEmployeeAsync(id, request, tenantId);
+            var tenantClaim = User.FindFirst("tenant_id")?.Value;
+            if (tenantClaim == null) 
+                return Forbid();
 
-                return Ok();
-            }
-            catch (Exception ex)
-            {
-                return NotFound(ex);
-            }
-                 
-                
+            var tenantId = Guid.Parse(tenantClaim);
+            var updatedBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
+
+            var res = await _employeeService.UpdateEmployeeAsync(id, request, tenantId);
+            if (!res.IsSuccess)
+                return NotFound(res.Message);
+
+            return Ok(res.Message);
+
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(Guid id)
         {
-            try
-            {
-                var tenantClaim = User.FindFirst("tenant_id")?.Value;
-                if (tenantClaim == null) return Forbid();
-                var tenantId = Guid.Parse(tenantClaim);
-                await _employeeService.DeleteEmployeeAsync(id, tenantId);
-                return Ok();
-            }
-            catch
-            {
-                return NotFound();
-            }
+            var tenantClaim = User.FindFirst("tenant_id")?.Value;
+
+            if (tenantClaim == null) 
+                return Forbid();
+
+            var tenantId = Guid.Parse(tenantClaim);
+            var res= await _employeeService.DeleteEmployeeAsync(id, tenantId);
+                
+            if (!res.IsSuccess)    
+                return NotFound(res.Message);
+
+            return Ok(res.Message);
+            
+           
         }
     }
-    }
+}

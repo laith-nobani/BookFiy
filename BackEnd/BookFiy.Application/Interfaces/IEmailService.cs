@@ -9,7 +9,5 @@ namespace BookFiy.Application.Interfaces
         public Task<string> CreateAndSendTemporaryPasswordAsync(string email,string tempPassword);
         public Task SendEmail(string to, string subject, string body);
         public Task SendOtpByEmailAsync(string email, string otp);
-
-    
     }
 }

@@ -16,78 +16,85 @@ namespace BookFiy.Api.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
-            try
-            {
 
-                var result = await _authService.LoginAsync(request);
-                return Ok(result);
-            }
-            catch (Exception ex)
+            var result = await _authService.LoginAsync(request);
+            if (!result.IsSuccess)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(result.Message);
             }
+
+            return Ok(result.Data);
+
         }
 
         [HttpPost("register")]
         public async Task<IActionResult> Register(RegisterRequest request)
         {
-            try
-            {
 
-                var result = await _authService.RegisterAsync(request);
-                return Ok(result);
-            }
-            catch (Exception ex)
+            var result = await _authService.RegisterAsync(request);
+            if (!result.IsSuccess)
             {
-                return BadRequest(ex.Message);
-            }
+                return BadRequest(result.Message);
 
+            }
+            return Ok(result.Data);
         }
 
-        [HttpPost("confirm-register")]
+        [HttpPost("register/confirm-register")]
         public async Task<IActionResult> ConfirmRegister(RegisterConfirmRequest request)
         {
-            try
-            {
 
-                await _authService.ConfirmRegisterAsync(request);
-                return Ok();
-            }
-            catch (Exception ex)
+            var result = await _authService.ConfirmRegisterAsync(request);
+            if (!result.IsSuccess)
             {
-                return BadRequest(ex.Message);
-
+                return BadRequest(result.Message);
             }
+            return Ok(result.Data);
 
         }
-        [HttpPost("resend-otp")]
+        [HttpPost("register/resend-otp")]
         public async Task<IActionResult> ResendOtp(string email)
         {
-            try
+            var result = await _authService.ResendOtpAsync(email);
+            if (!result.IsSuccess)
             {
-                await _authService.ResendOtpAsync(email);
-                return Ok();
+                return BadRequest(result.Message);
             }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            return Ok(result.Message);
         }
 
         [HttpPost("Refresh-Token")]
-        public async Task<IActionResult> RefreshToken(RefreshTokenRequest request) 
+        public async Task<IActionResult> RefreshToken(RefreshTokenRequest request)
         {
-            try
+            var result = await _authService.RefreshToken(request);
+            if (!result.IsSuccess)
             {
-                var result = await _authService.RefreshToken(request);
-                return Ok(result);
+                return BadRequest(result.Message);
             }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
-
+            return Ok(result.Data);
         }
 
+        [HttpPost("Logout")]
+        public async Task<IActionResult> Logout(string refreshToken)
+        {
+            var result = await _authService.LogoutAsync(refreshToken);
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result.Message);
+            }
+            return Ok(result.Message);
+        }
+
+        [HttpPost("Reset-Password")]
+        public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
+        {
+            var result = await _authService.ResetPasswordAsync(request);
+            if (!result.IsSuccess)
+            {
+                return BadRequest(result.Message);
+            }
+            return Ok(result.Message);
+
+        }
     }
 }

@@ -50,14 +50,21 @@ namespace BookFiy.Api.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDto dto)
         {
-            var tenantId = dto.TenantId;
-            var booking = await _bookingService.CreateBookingAsync(tenantId, dto);
-            if (!booking)
+            try
             {
-                return BadRequest("Failed to create booking.");
-            }
+                var tenantId = dto.TenantId;
+                var booking = await _bookingService.CreateBookingAsync(tenantId, dto);
+                if (!booking)
+                {
+                    return BadRequest("Failed to create booking.");
+                }
 
-            return Ok("Booking created successfully.");
+                return Ok("Booking created successfully.");
+            }
+            catch 
+            {
+                return NotFound("Failed to create booking.");
+            }
         }
 
         [HttpDelete]
