@@ -1,6 +1,9 @@
-﻿using BookFiy.Application.Dtos.Employee;
+﻿using BookFiy.Api.Extensions;
+using BookFiy.Application.Dtos.Employee;
 using BookFiy.Application.Interfaces;
+using BookFiy.Application.Services;
 using BookFiy.Domain.Constants;
+using BookFiy.Domain.Entites;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -30,13 +33,9 @@ namespace BookFiy.Api.Controllers
             var tenantId = Guid.Parse(tenantClaim);
             var createdBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-            var res = await _employeeService.RegisterEmployeeAsync(request, tenantId, createdBy);
+            return (await _employeeService.RegisterEmployeeAsync(request, tenantId, createdBy))
+               .ToActionResult();
 
-            if (!res.IsSuccess)
-                return BadRequest(res.Message);
-
-            return Ok(res.Data);
-           
         }
 
         [HttpGet]
@@ -76,12 +75,9 @@ namespace BookFiy.Api.Controllers
             var tenantId = Guid.Parse(tenantClaim);
             var updatedBy = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)!.Value);
 
-            var res = await _employeeService.UpdateEmployeeAsync(id, request, tenantId);
-            if (!res.IsSuccess)
-                return NotFound(res.Message);
-
-            return Ok(res.Message);
-
+            
+            return (await _employeeService.UpdateEmployeeAsync(id, request, tenantId))
+                      .ToActionResult();
         }
 
         [HttpDelete("{id}")]
@@ -93,14 +89,11 @@ namespace BookFiy.Api.Controllers
                 return Forbid();
 
             var tenantId = Guid.Parse(tenantClaim);
-            var res= await _employeeService.DeleteEmployeeAsync(id, tenantId);
-                
-            if (!res.IsSuccess)    
-                return NotFound(res.Message);
 
-            return Ok(res.Message);
-            
-           
+            return (await _employeeService.DeleteEmployeeAsync(id,tenantId))
+                            .ToActionResult();
+
+
         }
     }
 }

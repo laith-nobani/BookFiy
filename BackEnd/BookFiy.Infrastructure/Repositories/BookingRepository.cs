@@ -1,4 +1,4 @@
-﻿using BookFiy.Domain.Entites;
+using BookFiy.Domain.Entites;
 using BookFiy.Domain.IRepositories;
 using BookFiy.Infrastructure.Data.Context;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +53,7 @@ namespace BookFiy.Infrastructure.Repositories
         {
              var bookings = _dbContext.Bookings
                 .Where(b => b.TenantId == tenantId && b.StartTime.Date == date.ToDateTime(TimeOnly.MinValue).Date)
+                .Include(e=> e.User)
                 .ToListAsync();
             return bookings;
         }
@@ -120,6 +121,87 @@ namespace BookFiy.Infrastructure.Repositories
             
           await _dbContext.SaveChangesAsync();
             
+        }
+
+        public async Task AddAuditAsync(BookingAudit audit)
+        {
+            await _dbContext.Set<BookingAudit>().AddAsync(audit);
+        }
+
+        public async Task<bool> CreateBookingWithLockAndAuditAsync(Booking booking, BookingAudit audit, string lockKey)
+        {
+            var connection = _dbContext.Database.GetDbConnection();
+            await connection.OpenAsync();
+
+            try
+            {
+                await using (var lockCommand = connection.CreateCommand())
+                {
+                    lockCommand.CommandText = @"
+                    EXEC sp_getapplock 
+                    @Resource = @resource,
+                    @LockMode = 'Exclusive',
+                    @LockTimeout = 5000;
+                    ";
+
+                    var param = lockCommand.CreateParameter();
+                    param.ParameterName = "@resource";
+                    param.Value = lockKey;
+                    lockCommand.Parameters.Add(param);
+
+                    await lockCommand.ExecuteNonQueryAsync();
+                }
+
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+                try
+                {
+                    var hasConflict = await HasConflictAsync(
+                        booking.TenantId,
+                        booking.ServiceId,
+                        booking.StartTime,
+                        booking.EndTime);
+
+                    if (hasConflict)
+                        throw new Exception("Time slot already booked");
+
+                    await _dbContext.Bookings.AddAsync(booking);
+                    await _dbContext.Set<BookingAudit>().AddAsync(audit);
+                    await transaction.CommitAsync();
+
+                    return true;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+            finally
+            {
+                try
+                {
+                    await using var releaseCommand = connection.CreateCommand();
+                    releaseCommand.CommandText = @"
+                    EXEC sp_releaseapplock 
+                    @Resource = @resource,
+                    @LockOwner = 'Session';
+                ";
+
+                    var param = releaseCommand.CreateParameter();
+                    param.ParameterName = "@resource";
+                    param.Value = lockKey;
+                    releaseCommand.Parameters.Add(param);
+
+                    await releaseCommand.ExecuteNonQueryAsync();
+                }
+                catch
+                {
+                   
+                }
+
+                await connection.CloseAsync();
+            }
         }
     }
 }

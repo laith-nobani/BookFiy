@@ -22,6 +22,7 @@ namespace BookFiy.Application.Services
                 return;
 
             var serializedValue = System.Text.Json.JsonSerializer.Serialize(value);
+            
 
 
             await _database.StringSetAsync(key, serializedValue, expiry);

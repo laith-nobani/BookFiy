@@ -25,7 +25,7 @@ namespace BookFiy.Application.Services
         {
             var emp = await _employeeRepository.GetEmployeeByIdAsync(employeeId, tenantId);
             if (emp == null)
-                return Result<EmployeeDto>.Failure("Employee not found.");
+                return Result<EmployeeDto>.Failure("Employee not found.", ErrorType.NotFound);
 
             var user = await _userManager.FindByIdAsync(emp.UserId.ToString());
 
@@ -130,26 +130,26 @@ namespace BookFiy.Application.Services
              var empTask =await _employeeRepository.GetEmployeeByIdAsync(employeeId, tenantId);
 
              if (empTask == null)
-               return Result<bool>.Failure("Employee not found.");
+               return Result<bool>.Failure("Employee not found.", ErrorType.NotFound);
 
 
             if (empTask.TenantId != tenantId)
-                return Result<bool>.Failure("You do not have permission to update this employee.");
+                return Result<bool>.Failure("You do not have permission to update this employee.", ErrorType.Forbidden);
 
 
             var user = await _userManager.FindByIdAsync(empTask.UserId.ToString());
 
             if (user == null)
-                return Result<bool>.Failure("Associated user not found.");
+                return Result<bool>.Failure("Associated user not found.", ErrorType.NotFound);
 
             if (user.TenantId != tenantId)
-                return Result<bool>.Failure("You do not have permission to update this employee's user.");
+                return Result<bool>.Failure("You do not have permission to update this employee's user.", ErrorType.NotFound);
 
             user.UpdateUser(request.Email, request.Email, $"{request.FirstName} {request.LastName}",request.PhoneNumber);
             var userUpdateResult = await _userManager.UpdateAsync(user);
             if (!userUpdateResult.Succeeded)
             {
-                return Result<bool>.Failure(string.Join(", ", userUpdateResult.Errors.Select(e => e.Description)));
+                return Result<bool>.Failure(string.Join(", ", userUpdateResult.Errors.Select(e => e.Description)),ErrorType.Validation);
             }
 
             empTask.Update(request.JobTitle, request.Bio);
@@ -163,23 +163,23 @@ namespace BookFiy.Application.Services
         {
             var empTask =await _employeeRepository.GetEmployeeByIdAsync(employeeId, tenantId);
             if (empTask == null)
-                return Result<bool>.Failure("Employee not found.");
+                return Result<bool>.Failure("Employee not found.", ErrorType.NotFound);
             
             if(empTask.TenantId != tenantId)
-                return Result<bool>.Failure("You do not have permission to delete this employee.");
+                return Result<bool>.Failure("You do not have permission to delete this employee.", ErrorType.Forbidden);
             var user = await _userManager.FindByIdAsync(empTask.UserId.ToString());
 
             if (user == null)
-                return Result<bool>.Failure("Associated user not found.");
+                return Result<bool>.Failure("Associated user not found.", ErrorType.NotFound);
 
             if(user.TenantId != tenantId)
-                return Result<bool>.Failure("You do not have permission to delete this employee's user.");
+                return Result<bool>.Failure("You do not have permission to delete this employee's user.", ErrorType.Forbidden);
 
             user.SoftDelete();
             var userUpdateResult = await _userManager.UpdateAsync(user);
             if (!userUpdateResult.Succeeded)
                 {
-                return Result<bool>.Failure(string.Join(", ", userUpdateResult.Errors.Select(e => e.Description)));
+                return Result<bool>.Failure(string.Join(", ", userUpdateResult.Errors.Select(e => e.Description)), ErrorType.Validation);
             }
            
             empTask.SoftDelete();

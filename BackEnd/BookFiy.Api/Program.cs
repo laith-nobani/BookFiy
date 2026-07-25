@@ -119,6 +119,7 @@ builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IBookingStatusRepository, BookingStatusRepository>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<RedisService>();
+builder.Services.AddScoped<IUnitOfWork,IUnitOfWork>();
 // refresh token repository
 builder.Services.AddScoped<BookFiy.Domain.IRepositories.IRefreshTokenRepository, BookFiy.Infrastructure.Repositories.RefreshTokenRepository>();
 

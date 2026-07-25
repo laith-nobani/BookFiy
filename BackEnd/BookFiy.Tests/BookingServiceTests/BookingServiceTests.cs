@@ -1,4 +1,4 @@
-﻿using BookFiy.Application.Dtos.Booking;
+using BookFiy.Application.Dtos.Booking;
 using BookFiy.Application.Interfaces;
 using BookFiy.Application.Services;
 using BookFiy.Domain.Entites;
@@ -21,8 +21,8 @@ namespace BookFiy.Tests.BookingServiceTests
         private readonly Mock<IServiceRepository> _serviceRepo = new();
         private readonly Mock<IEmployeeRepository> _employeeRepo = new();
         private readonly Mock<ITenantProvider> _tenantProvider = new();
+        private readonly Mock<IUnitOfWork> _UnitOfWork = new();
         private readonly Mock<UserManager<ApplicationUser>> _userManager;
-        private readonly AppDbContext _dbContext;
         private readonly BookingService _service;
 
         public BookingServiceTests()
@@ -31,20 +31,13 @@ namespace BookFiy.Tests.BookingServiceTests
                 new Mock<IUserStore<ApplicationUser>>().Object,
                 null, null, null, null, null, null, null, null);
 
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseInMemoryDatabase(Guid.NewGuid().ToString())
-                .Options;
-
-            _dbContext = new AppDbContext(options);
-
             _service = new BookingService(
                 _tenantProvider.Object,
                 _bookingRepo.Object,
                 _statusRepo.Object,
                 _serviceRepo.Object,
                 _employeeRepo.Object,
-                _dbContext,
-                null!,
+                _UnitOfWork.Object,
                 _userManager.Object
             );
         }
@@ -76,6 +69,9 @@ namespace BookFiy.Tests.BookingServiceTests
             await _service.UpdateBookingAsync(booking.Id, dto);
 
             Assert.Equal(2, booking.StatusId);
+            _UnitOfWork.Verify(x => x.BeginTransactionAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.CommitAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.RollbackAsync(), Times.Never);
         }
 
         [Fact]
@@ -103,7 +99,10 @@ namespace BookFiy.Tests.BookingServiceTests
             await _service.UpdateBookingAsync(booking.Id, dto);
 
             Assert.Equal("New Notes", booking.Notes);
-            _bookingRepo.Verify(x => x.UpdateAsync(), Times.Once);
+
+            _UnitOfWork.Verify(x => x.BeginTransactionAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.CommitAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.RollbackAsync(), Times.Never);
         }
         [Fact]
         public async Task UpdateBooking_ShouldUpdateTime_WhenNoConflict()
@@ -153,6 +152,9 @@ namespace BookFiy.Tests.BookingServiceTests
 
             Assert.Equal(newStart, booking.StartTime);
             Assert.Equal(newStart.AddMinutes(60), booking.EndTime);
+            _UnitOfWork.Verify(x => x.BeginTransactionAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.CommitAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.RollbackAsync(), Times.Never);
         }
 
         [Fact]
@@ -163,7 +165,12 @@ namespace BookFiy.Tests.BookingServiceTests
 
             await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _service.UpdateBookingAsync(Guid.NewGuid(), new UpdateBookingDto()));
+
+            _UnitOfWork.Verify(x => x.BeginTransactionAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.CommitAsync(), Times.Never);
+            _UnitOfWork.Verify(x => x.RollbackAsync(), Times.Once);
         }
+
         [Fact]
         public async Task UpdateBooking_ShouldThrow_WhenTimeConflictExists()
         {
@@ -206,6 +213,10 @@ namespace BookFiy.Tests.BookingServiceTests
                     {
                         StartTime = DateTime.UtcNow
                     }));
+
+            _UnitOfWork.Verify(x => x.BeginTransactionAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.CommitAsync(), Times.Never);
+            _UnitOfWork.Verify(x => x.RollbackAsync(), Times.Once);
         }
 
         [Fact]
@@ -226,6 +237,9 @@ namespace BookFiy.Tests.BookingServiceTests
             await _service.DeleteBookingAsync(booking.Id);
 
             _bookingRepo.Verify(x => x.UpdateAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.BeginTransactionAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.CommitAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.RollbackAsync(), Times.Never);
         }
 
         [Fact]
@@ -236,6 +250,10 @@ namespace BookFiy.Tests.BookingServiceTests
 
             await Assert.ThrowsAsync<KeyNotFoundException>(
                 () => _service.DeleteBookingAsync(Guid.NewGuid()));
+
+            _UnitOfWork.Verify(x => x.BeginTransactionAsync(), Times.Once);
+            _UnitOfWork.Verify(x => x.CommitAsync(), Times.Never);
+            _UnitOfWork.Verify(x => x.RollbackAsync(), Times.Once);
         }
     }
 }

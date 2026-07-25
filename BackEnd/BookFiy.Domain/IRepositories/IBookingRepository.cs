@@ -1,4 +1,4 @@
-﻿using BookFiy.Domain.Entites;
+using BookFiy.Domain.Entites;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -33,5 +33,8 @@ namespace BookFiy.Domain.IRepositories
             DateTime endTime,
             Guid? excludeBookingId = null);
 
+        Task AddAuditAsync(BookingAudit audit);
+
+        Task<bool> CreateBookingWithLockAndAuditAsync(Booking booking, BookingAudit audit, string lockKey);
     }
 }

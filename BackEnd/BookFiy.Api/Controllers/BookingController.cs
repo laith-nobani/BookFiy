@@ -1,4 +1,5 @@
-﻿using BookFiy.Application.Dtos.Booking;
+﻿using BookFiy.Api.Extensions;
+using BookFiy.Application.Dtos.Booking;
 using BookFiy.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,83 +22,53 @@ namespace BookFiy.Api.Controllers
         public async Task<IActionResult> GetBookings(Guid employeeId, DateTime? from = null, DateTime? to = null, int page = 1, int pageSize = 20, string sort = "asc")
         {
             var bookings = await _bookingService.GetBookingsByEmployeeAsync(employeeId, from, to, page, pageSize, sort);
-            return Ok(bookings);
+            return Ok(bookings.Data);
         }
 
         [HttpGet("{bookingId}")]
         public async Task<IActionResult> GetBookingById(Guid bookingId)
         {
-            var booking = await _bookingService.GetBookingByIdAsync(bookingId);
-            if (booking == null)
+            var res = await _bookingService.GetBookingByIdAsync(bookingId);
+            if (!res.IsSuccess)
             {
-                return NotFound("Booking not found.");
+                return NotFound(res.Message);
             }
-            return Ok(booking);
+            return Ok(res.Data);
         }
 
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetBookingByUserID(Guid userId, DateTime? from = null, DateTime? to = null, int page = 1, int pageSize = 20, string sort = "asc")
         {
-            var booking = await _bookingService.GetBookingsByUserAsync(userId, from, to, page, pageSize, sort);
-            if (booking == null)
+            var res = await _bookingService.GetBookingsByUserAsync(userId, from, to, page, pageSize, sort);
+            if (!res.IsSuccess)
             {
-                return NotFound("Booking not found.");
+                return NotFound(res.Message);
             }
-            return Ok(booking);
+            return Ok(res.Data);
         }
 
 
         [HttpPost]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDto dto)
         {
-            try
-            {
-                var tenantId = dto.TenantId;
-                var booking = await _bookingService.CreateBookingAsync(tenantId, dto);
-                if (!booking)
-                {
-                    return BadRequest("Failed to create booking.");
-                }
-
-                return Ok("Booking created successfully.");
-            }
-            catch 
-            {
-                return NotFound("Failed to create booking.");
-            }
+            return (await _bookingService.CreateBookingAsync(dto.TenantId, dto))
+            .ToActionResult();
         }
 
         [HttpDelete]
 
         public async Task<IActionResult> DeleteBooking(Guid bookingId)
         {
-            try
-            {
-                await _bookingService.DeleteBookingAsync(bookingId);
-                return Ok("Booking deleted successfully.");
-
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound("Booking not found.");
-            }
+            return (await _bookingService.DeleteBookingAsync(bookingId))
+                .ToActionResult();
 
         }
 
         [HttpPut("{bookingId}")]
         public async Task<IActionResult> UpdateBooking(Guid bookingId, [FromBody] UpdateBookingDto dto)
         {
-            try
-            {
-                await _bookingService.UpdateBookingAsync(bookingId, dto);
-                return Ok("Booking updated successfully.");
-            }
-            catch (KeyNotFoundException)
-            {
-                return NotFound("Booking not found.");
-            }
-
-
+            return (await _bookingService.UpdateBookingAsync(bookingId,dto))
+                .ToActionResult();
         }
     }
 }
