@@ -15,9 +15,9 @@ The project is split into layers. Each layer only depends on the layer(s) inside
 
 Domain – The core. Entities (Tenant, Employee, Service, Booking, Otp, RefreshToken, ApplicationUser) and repository interfaces. No dependency on anything else.
 
-Application – Business logic. Services (BookingService, EmployeeService, TenantService, OtpService, EmailService) that use the Domain interfaces, plus DTOs and validators. Depends only on Domain.
+Application – Business logic. Services (BookingService, EmployeeService, TenantService, OtpService, EmailService) that use the Domain interfaces, plus DTOs and validators. Depends on Domain.
 
-Infrastructure – Implements the Domain's repository interfaces using EF Core. Contains the DbContext, database configs, and seed data. Depends on Domain and Application.
+Infrastructure – Implements the Domain's repository interfaces using EF Core. Contains the DbContext, entity configurations, database migrations, seed data, and external service implementations such as Redis caching and email services. Depends on the Domain and Application layers.
 
 API – Controllers and middleware. The entry point that receives HTTP requests and calls Application services. Depends on Application.
 
@@ -28,9 +28,10 @@ Tests – xUnit tests that call Application services directly, using mocked repo
 ###  Auth
 - `POST /api/auth/register`
 - `POST /api/auth/login`
-- `POST /api/auth/confirm-register`
-- `POST /api/auth/resend-otp`
-- `POST /api/auth/refresh-token`
+- `POST /api/auth/register/confirm`
+- `POST /api/auth/otp/resend`
+- `POST /api/auth/token/refresh`
+- `POST /api/auth/logout`
 
 ---
 
