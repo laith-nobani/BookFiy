@@ -7,6 +7,7 @@ using BookFiy.Application.Validtors;
 using BookFiy.Domain.Entites;
 using BookFiy.Domain.Entities;
 using BookFiy.Domain.IRepositories;
+using BookFiy.Infrastructure.Data;
 using BookFiy.Infrastructure.Data.Context;
 using BookFiy.Infrastructure.Data.SeedData;
 using BookFiy.Infrastructure.Repositories;
@@ -118,14 +119,20 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IBookingRepository, BookingRepository>();
 builder.Services.AddScoped<IBookingStatusRepository, BookingStatusRepository>();
 builder.Services.AddScoped<IBookingService, BookingService>();
-builder.Services.AddScoped<RedisService>();
-builder.Services.AddScoped<IUnitOfWork,IUnitOfWork>();
+builder.Services.AddScoped<IRedisService,RedisService>();
+builder.Services.AddScoped<IUnitOfWork,UnitOfWork>();
 // refresh token repository
 builder.Services.AddScoped<BookFiy.Domain.IRepositories.IRefreshTokenRepository, BookFiy.Infrastructure.Repositories.RefreshTokenRepository>();
 
 // redis
-var redis = ConnectionMultiplexer.Connect("localhost:6379,abortConnect=false");
-builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+    var redisConnection =
+        builder.Configuration.GetConnectionString("Redis");
+
+    return ConnectionMultiplexer.Connect(redisConnection!);
+});
+
 // Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

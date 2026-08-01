@@ -1,21 +1,19 @@
 using BookFiy.Application.Dtos.Service;
 using BookFiy.Application.Interfaces;
 using BookFiy.Domain.Entites;
-using BookFiy.Domain.IRepositories;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 
 namespace BookFiy.Application.Services
 {
     public class ServiceService : IServiceService
     {
         private readonly BookFiy.Domain.IRepositories.IServiceRepository _repo;
+        private readonly IRedisService _redis;
 
-        public ServiceService(BookFiy.Domain.IRepositories.IServiceRepository repo)
+        public ServiceService(BookFiy.Domain.IRepositories.IServiceRepository repo,IRedisService redis)
         {
             _repo = repo;
+            _redis = redis;
         }
 
         public async Task<ServiceDto> CreateServiceAsync(CreateServiceDto dto, Guid tenantId)
@@ -33,6 +31,9 @@ namespace BookFiy.Application.Services
                 UpdatedAt = DateTime.UtcNow
             };
             await _repo.CreateAsync(service);
+
+            await _redis.RemoveAsync($"services_{tenantId}");
+
             return new ServiceDto
             {
                 Id = service.Id,
@@ -50,6 +51,7 @@ namespace BookFiy.Application.Services
                 throw new KeyNotFoundException("Service not found");
 
             await _repo.DeleteAsync(id, tenantId);
+            await _redis.RemoveAsync($"services_{tenantId}");
         }
 
         public async Task<List<ServiceDto>> GetAllAsync(Guid tenantId, Guid Employeeid)
@@ -67,8 +69,20 @@ namespace BookFiy.Application.Services
 
         public async Task<List<ServiceDto>> GetAllAsync(Guid tenantId)
         {
+            var key = $"services_{tenantId}";
+
+            var cachedServices = await _redis.GetAsync<List<ServiceDto>>(key);
+
+
+            if (cachedServices != null)
+            {
+                return cachedServices;
+            }
+
+
             var list = await _repo.GetServicesAsync(tenantId);
-            return list.Select(s => new ServiceDto
+
+            var result = list.Select(s => new ServiceDto
             {
                 Id = s.Id,
                 Name = s.Name,
@@ -76,6 +90,11 @@ namespace BookFiy.Application.Services
                 DurationMinutes = s.DurationMinutes,
                 Price = s.Price
             }).ToList();
+
+            await _redis.SetAsync(key,result, TimeSpan.FromMinutes(5));
+
+            return result;
+
         }
 
         public async Task<ServiceDto> GetByIdAsync(Guid id, Guid tenantId)
@@ -120,6 +139,9 @@ namespace BookFiy.Application.Services
                 s.Price = dto.Price;
             s.UpdatedAt = DateTime.UtcNow;
             await _repo.UpdateAsync(s);
+
+            await _redis.RemoveAsync(
+             $"services:{tenantId}");
         }
     }
 }

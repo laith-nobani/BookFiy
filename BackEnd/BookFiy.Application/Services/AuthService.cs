@@ -45,14 +45,14 @@ namespace BookFiy.Application.Services
             var validationResult = await _loginValidator.ValidateAsync(request);
             if (!validationResult.IsValid)
             {
-                return Result<LoginResponse>.Failure(string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
+                return Result<LoginResponse>.Failure(string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)), ErrorType.Validation);
             }
 
             var user = await _userManager.FindByEmailAsync(request.Email);
 
             if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
             {
-                return Result<LoginResponse>.Failure("Invalid email or password.");
+                return Result<LoginResponse>.Failure("Invalid email or password.", ErrorType.Validation);
             }
 
             var token = await GenerateJwtToken(user);
@@ -89,13 +89,13 @@ namespace BookFiy.Application.Services
             var validationResult = await _registerValidator.ValidateAsync(request);
             if (!validationResult.IsValid)
             {
-                return Result<RegisterResponse>.Failure(string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
+                return Result<RegisterResponse>.Failure(string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)),ErrorType.Validation);
             }
 
             var existing = await _userManager.FindByEmailAsync(request.Email);
             if (existing != null)
             {
-                return Result<RegisterResponse>.Failure("Email is already registered.");
+                return Result<RegisterResponse>.Failure("Email is already registered.", ErrorType.Conflict);
             }
 
 
@@ -118,18 +118,18 @@ namespace BookFiy.Application.Services
             var ok = await _otpService.VerifyOtpAsync(request.Email, request.Code);
             if (!ok) 
             {
-                return Result<RegisterResponse>.Failure("Invalid or expired OTP.");
+                return Result<RegisterResponse>.Failure("Invalid or expired OTP.",ErrorType.Validation);
             }
 
             var existing = await _userManager.FindByEmailAsync(request.Email);
             if (existing != null)
-                return Result<RegisterResponse>.Failure("Email is already registered.");
+                return Result<RegisterResponse>.Failure("Email is already registered.", ErrorType.Conflict);
 
             var newUser = ApplicationUser.Create(request.UserName, request.Email, request.FirstName, request.LastName, request.PhoneNumber, request.TenantId);
             var result = await _userManager.CreateAsync(newUser, request.Password);
             if (!result.Succeeded)
             {
-               return Result<RegisterResponse>.Failure(string.Join(", ", result.Errors.Select(e => e.Description)));
+               return Result<RegisterResponse>.Failure(string.Join(", ", result.Errors.Select(e => e.Description)), ErrorType.Validation);
             }
             await _userManager.AddToRoleAsync(newUser, "Customer");
 
@@ -184,7 +184,7 @@ namespace BookFiy.Application.Services
             var existing = await _userManager.FindByEmailAsync(email);
             if (existing != null)
             {
-                return Result<bool>.Failure("Email is already registered.");
+                return Result<bool>.Failure("Email is already registered.", ErrorType.Conflict);
 
             }
             var otp = await _otpService.CreateOtpAsync(email, TimeSpan.FromMinutes(5));
@@ -198,29 +198,29 @@ namespace BookFiy.Application.Services
         {
             if (request == null)
             {
-                return Result<RefreshTokenResponse>.Failure("Request cannot be null.");
+                return Result<RefreshTokenResponse>.Failure("Request cannot be null.", ErrorType.Validation);
             }
 
             if (string.IsNullOrEmpty(request.RefreshToken))
             {
-               return Result<RefreshTokenResponse>.Failure("Refresh token cannot be null or empty.");
+               return Result<RefreshTokenResponse>.Failure("Refresh token cannot be null or empty.", ErrorType.Validation);
             }
 
             var refreshToken = await _tokenRepository.GetByTokenAsync(request.RefreshToken);
             if (refreshToken == null)
             {
-                return  Result<RefreshTokenResponse>.Failure("Refresh token not found.");
+                return  Result<RefreshTokenResponse>.Failure("Refresh token not found.", ErrorType.Validation);
             }
 
             if (refreshToken.IsRevoked || refreshToken.IsExpired)
             {
-                return Result<RefreshTokenResponse>.Failure("Refresh token is either revoked or expired.");
+                return Result<RefreshTokenResponse>.Failure("Refresh token is either revoked or expired.", ErrorType.Validation);
             }
 
             var user = await _userManager.FindByIdAsync(refreshToken.UserId.ToString());
             if (user == null)
             {
-                return Result<RefreshTokenResponse>.Failure("User associated with the refresh token not found.");
+                return Result<RefreshTokenResponse>.Failure("User associated with the refresh token not found.", ErrorType.Validation);
             }
 
             var newToken = await GenerateJwtToken(user);
@@ -241,7 +241,7 @@ namespace BookFiy.Application.Services
                 return Result<RefreshTokenResponse>.Success(res);
             }
            
-            return Result<RefreshTokenResponse>.Failure("Failed to generate new JWT token.");
+            return Result<RefreshTokenResponse>.Failure("Failed to generate new JWT token.", ErrorType.Validation);
         }
 
         public async Task<Result<bool>> LogoutAsync(string refreshToken)
@@ -249,16 +249,16 @@ namespace BookFiy.Application.Services
             var token =await _tokenRepository.GetByTokenAsync(refreshToken);
             if (token == null)
             {
-                return Result<bool>.Failure("Refresh token not found.");
+                return Result<bool>.Failure("Refresh token not found.", ErrorType.Validation);
             }
 
             if (token.IsRevoked)
             {
-                return Result<bool>.Failure("Refresh token is already revoked.");
+                return Result<bool>.Failure("Refresh token is already revoked.", ErrorType.Validation);
             }
             if (token.IsExpired)
             {
-                return Result<bool>.Failure("Refresh token is expired.");
+                return Result<bool>.Failure("Refresh token is expired.", ErrorType.Validation);
             }
 
             await _tokenRepository.RevokeAsync(token);
@@ -272,26 +272,26 @@ namespace BookFiy.Application.Services
             var user = await _userManager.FindByEmailAsync(request.Email);
             if (user == null)
             {
-                return Result<bool>.Failure("User not found.");
+                return Result<bool>.Failure("User not found.", ErrorType.Validation);
             }
 
             var isOldPasswordValid = await _userManager.CheckPasswordAsync(user, request.OldPassword);
             if (!isOldPasswordValid)
             {
-                return Result<bool>.Failure("Old password is incorrect.");
+                return Result<bool>.Failure("Old password is incorrect.", ErrorType.Validation);
             }
 
             var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
             if (resetToken == null)
             {
-                return Result<bool>.Failure("Failed to generate password reset token.");
+                return Result<bool>.Failure("Failed to generate password reset token.", ErrorType.Validation);
             }
 
             var resetResult = await _userManager.ResetPasswordAsync(user, resetToken, request.NewPassword);
 
             if (!resetResult.Succeeded)
             {
-                return Result<bool>.Failure(string.Join(", ", resetResult.Errors.Select(e => e.Description)));
+                return Result<bool>.Failure(string.Join(", ", resetResult.Errors.Select(e => e.Description)), ErrorType.Validation);
             }
            
             return Result<bool>.Success(true, "Password reset successfully.");
