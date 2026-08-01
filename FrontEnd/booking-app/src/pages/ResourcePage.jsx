@@ -2,9 +2,7 @@ import React, { useEffect, useState } from "react";
 import { apiFetch } from "../api";
 import { useAuth } from "../AuthContext";
 
-// Small reusable pattern: fetch a list from `path`, show a table, and a
-// create form built from `fields`. Used where create+delete both exist
-// and the response shape is simple (currently just Tenants).
+
 export default function ResourcePage({ title, path, fields, columns }) {
   const { token } = useAuth();
   const [items, setItems] = useState([]);

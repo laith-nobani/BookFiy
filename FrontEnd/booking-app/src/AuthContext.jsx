@@ -1,10 +1,7 @@
 import React, { createContext, useContext, useState } from "react";
 import { apiFetch, getUserIdFromToken, getTenantIdFromToken } from "./api";
 
-// Matches BookFiy's AuthController: login uses email, and the login
-// response already contains the role/fullName/tenantId - no JWT decoding
-// needed for that part. Registration is a two-step OTP flow: register ->
-// email code -> confirm-register -> then log in normally.
+
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 
@@ -45,16 +42,14 @@ export function AuthProvider({ children }) {
     return normalizedUser;
   };
 
-  // Step 1: send registration details, backend emails an OTP code.
   const register = (form) =>
     apiFetch("/auth/register", null, {
       method: "POST",
       body: JSON.stringify(form),
     });
 
-  // Step 2: confirm with the code (same fields + code), then log in.
   const confirmRegister = async (form, code) => {
-    await apiFetch("/auth/confirm-register", null, {
+    await apiFetch("/auth/register/confirm", null, {
       method: "POST",
       body: JSON.stringify({ ...form, code }),
     });
@@ -62,7 +57,7 @@ export function AuthProvider({ children }) {
   };
 
   const resendOtp = (email) =>
-    apiFetch(`/auth/resend-otp?email=${encodeURIComponent(email)}`, null, { method: "POST" });
+    apiFetch(`/auth/register/otp/resend?email=${encodeURIComponent(email)}`, null, { method: "POST" });
 
   const logout = () => {
     setToken(null);
